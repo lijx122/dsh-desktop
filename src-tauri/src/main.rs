@@ -3,7 +3,7 @@
 
 use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Manager, WebviewUrl, WebviewWindowBuilder,
 };
 
 /// 强力预加载初始化脚本（在任何页面 DOM 解析之前执行）：
@@ -79,7 +79,16 @@ fn main() {
                 })
                 .build(app)?;
 
+            // 使用 WebviewWindowBuilder 动态配置带有 initialization_script 的主窗口
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.eval(DSH_PRELOAD_INIT_SCRIPT);
+            }
+
             Ok(())
+        })
+        .on_page_load(|window, _payload| {
+            // 每次页面加载（包括跳到 127.0.0.1:3080 时）强制运行初始化脚本
+            let _ = window.eval(DSH_PRELOAD_INIT_SCRIPT);
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

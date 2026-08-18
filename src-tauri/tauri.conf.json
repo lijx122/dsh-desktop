@@ -21,7 +21,6 @@
         "transparent": false,
         "shadow": true,
         "center": true,
-        "initializationScript": "(function(){console.log('[Tauri InitScript Active]');function bypass(){const btns=document.querySelectorAll('button');for(let i=0;i<btns.length;i++){const t=(btns[i].textContent||'').trim();if(t==='仍然加载'||t==='Load anyway'||t==='继续加载'){btns[i].click();}}const ifrs=document.querySelectorAll('iframe');for(let i=0;i<ifrs.length;i++){if(!ifrs[i].getAttribute('data-unblocked')){ifrs[i].setAttribute('data-unblocked','true');if(ifrs[i].hasAttribute('sandbox')){ifrs[i].setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads');}}}}if(document.documentElement){new MutationObserver(bypass).observe(document.documentElement,{childList:true,subtree:true});}window.addEventListener('DOMContentLoaded',bypass);setInterval(bypass,150);})();",
         "additionalBrowserArgs": "--disable-features=IsolateOrigins,site-per-process --disable-web-security --allow-running-insecure-content --disable-site-isolation-trials"
       }
     ],
