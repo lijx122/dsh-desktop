@@ -1,6 +1,6 @@
 [package]
 name = "dsh-desktop-tauri"
-version = "0.1.0"
+version = "1.1.1"
 description = "DeepSeek Harness Native Desktop Client Powered by Tauri v2"
 authors = ["DSH Community"]
 edition = "2021"
