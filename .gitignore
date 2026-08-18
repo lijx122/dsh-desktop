@@ -1,8 +1,13 @@
-node_modules
-dist
-target
+/node_modules
+/dist
+/target
 .icon-ico
 .npmrc
 dsh-embed-unblocker.zip
 dsh-embed-unblocker.xpi
 test-headers.cjs
+release-tauri/
+.drops/
+runtime/
+runtime-flat/
+scripts/pack-resources.ps1

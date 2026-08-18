@@ -2,15 +2,94 @@ const { app, BrowserWindow, session, shell, Tray, Menu, globalShortcut, ipcMain 
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
+const { spawn } = require('child_process');
 
 // Disable standard application menu globally
 Menu.setApplicationMenu(null);
 
-const DSH_DEFAULT_URL = process.env.DSH_WEB_URL || 'http://127.0.0.1:3080';
+const DSH_PORT = 3080;
+const DSH_DEFAULT_URL = `http://127.0.0.1:${DSH_PORT}`;
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 let checkInterval = null;
+let dshChildProcess = null;
+
+/**
+ * Locate embedded or local runtime binaries
+ */
+function getRuntimePaths() {
+  const isPackaged = app.isPackaged;
+  const baseDir = isPackaged
+    ? path.join(process.resourcesPath, 'runtime')
+    : path.join(__dirname, '../runtime');
+
+  const nodeExe = path.join(baseDir, 'bin/node.exe');
+  const dshBin = path.join(baseDir, 'dsh/lib/bin.js');
+
+  return {
+    nodeExe: fs.existsSync(nodeExe) ? nodeExe : 'node',
+    dshBin: fs.existsSync(dshBin) ? dshBin : null,
+    isEmbedded: fs.existsSync(nodeExe) && fs.existsSync(dshBin)
+  };
+}
+
+/**
+ * Start or Restart DSH Backend Daemon
+ */
+function startDshBackend(onReady) {
+  const { nodeExe, dshBin, isEmbedded } = getRuntimePaths();
+  console.log('[DSH Backend Manager] Starting with:', { nodeExe, dshBin, isEmbedded });
+
+  if (dshChildProcess) {
+    try {
+      dshChildProcess.kill('SIGTERM');
+      dshChildProcess = null;
+    } catch {}
+  }
+
+  const args = dshBin ? [dshBin, 'web', '--port', String(DSH_PORT)] : ['web', '--port', String(DSH_PORT)];
+  const cmd = dshBin ? nodeExe : 'dsh';
+
+  try {
+    dshChildProcess = spawn(cmd, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      env: {
+        ...process.env,
+        PORT: String(DSH_PORT),
+        NODE_ENV: 'production'
+      }
+    });
+
+    dshChildProcess.stdout.on('data', (data) => {
+      console.log(`[DSH Daemon stdout]: ${data}`);
+    });
+
+    dshChildProcess.stderr.on('data', (data) => {
+      console.error(`[DSH Daemon stderr]: ${data}`);
+    });
+
+    dshChildProcess.on('exit', (code, signal) => {
+      console.log(`[DSH Daemon] Exited with code ${code}, signal ${signal}`);
+      dshChildProcess = null;
+    });
+  } catch (err) {
+    console.error('[DSH Daemon] Failed to spawn backend process:', err);
+  }
+
+  if (onReady) onReady();
+}
+
+function stopDshBackend() {
+  if (dshChildProcess) {
+    try {
+      console.log('[DSH Backend Manager] Killing backend process...');
+      dshChildProcess.kill('SIGTERM');
+      dshChildProcess = null;
+    } catch {}
+  }
+}
 
 // Persistent Window State
 const configPath = path.join(app.getPath('userData'), 'window-state.json');
@@ -68,7 +147,10 @@ function applySecurityHooksToSession(ses) {
         lower === 'content-security-policy' ||
         lower === 'content-security-policy-report-only' ||
         lower === 'x-content-security-policy' ||
-        lower === 'x-webkit-csp'
+        lower === 'x-webkit-csp' ||
+        lower === 'cross-origin-opener-policy' ||
+        lower === 'cross-origin-embedder-policy' ||
+        lower === 'cross-origin-resource-policy'
       ) {
         delete responseHeaders[key];
       }
@@ -138,13 +220,11 @@ function createMainWindow() {
     height: state.height || 920,
     x: state.x,
     y: state.y,
-    minWidth: 960,
-    minHeight: 620,
+    minWidth: 900,
+    minHeight: 600,
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     title: 'DeepSeek Harness',
     backgroundColor: '#0b0f19',
-    frame: false, // Frameless window for custom modern DSH titlebar
-    autoHideMenuBar: true,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -156,26 +236,9 @@ function createMainWindow() {
     }
   });
 
-  mainWindow.setMenuBarVisibility(false);
-
   if (state.isMaximized) {
     mainWindow.maximize();
   }
-
-  // Synchronize maximize state to renderer
-  mainWindow.on('maximize', () => {
-    saveWindowState();
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('dsh:window-state-changed', { isMaximized: true });
-    }
-  });
-
-  mainWindow.on('unmaximize', () => {
-    saveWindowState();
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('dsh:window-state-changed', { isMaximized: false });
-    }
-  });
 
   // Handle Close to Tray
   mainWindow.on('close', (event) => {
@@ -211,8 +274,11 @@ function createMainWindow() {
     return { action: 'deny' };
   });
 
-  // Start connection attempt
-  attemptConnect();
+  // Start backend daemon & connection attempt
+  startDshBackend(() => {
+    attemptConnect();
+  });
+
   mainWindow.show();
 }
 
@@ -227,7 +293,6 @@ async function attemptConnect() {
     }
     mainWindow.loadURL(DSH_DEFAULT_URL);
   } else {
-    // Load splash screen
     const splashPath = path.join(__dirname, 'splash.html');
     mainWindow.loadFile(splashPath);
 
@@ -244,17 +309,31 @@ async function attemptConnect() {
         } else {
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('dsh:status-update', {
-              message: `探测中 (${new Date().toLocaleTimeString()})...`,
+              message: `正在拉起 DSH 后台服务 (${new Date().toLocaleTimeString()})...`,
               connected: false
             });
           }
         }
-      }, 1500);
+      }, 1200);
     }
   }
 }
 
-/** Setup System Tray */
+/** Restart backend and reload frontend */
+function restartDshEntirely() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.loadFile(path.join(__dirname, 'splash.html'));
+    mainWindow.webContents.send('dsh:status-update', { message: '正在重启 DSH 后台服务...', connected: false });
+  }
+
+  startDshBackend(() => {
+    setTimeout(() => {
+      attemptConnect();
+    }, 1000);
+  });
+}
+
+/** Setup System Tray with Restart Action */
 function setupTray() {
   const iconPath = path.join(__dirname, '../assets/icon.png');
   if (!fs.existsSync(iconPath)) return;
@@ -269,11 +348,11 @@ function setupTray() {
       }
     },
     {
-      label: '重新连接服务',
-      click: () => attemptConnect()
+      label: '🔄 重启 DSH 后台服务',
+      click: () => restartDshEntirely()
     },
     {
-      label: '刷新页面 (Ctrl+R)',
+      label: '刷新界面 (Ctrl+R)',
       click: () => mainWindow.reload()
     },
     { type: 'separator' },
@@ -289,15 +368,16 @@ function setupTray() {
     },
     { type: 'separator' },
     {
-      label: '退出',
+      label: '退出应用并关闭后台',
       click: () => {
         isQuitting = true;
+        stopDshBackend();
         app.quit();
       }
     }
   ]);
 
-  tray.setToolTip('DeepSeek Harness (DSH)');
+  tray.setToolTip('DeepSeek Harness (All-in-One)');
   tray.setContextMenu(contextMenu);
   tray.on('double-click', () => {
     if (mainWindow.isVisible()) {
@@ -309,45 +389,8 @@ function setupTray() {
   });
 }
 
-// Window Control IPC Handlers
-ipcMain.on('dsh:window-minimize', () => {
-  if (mainWindow) mainWindow.minimize();
-});
-
-ipcMain.on('dsh:window-maximize', () => {
-  if (mainWindow) {
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize();
-    } else {
-      mainWindow.maximize();
-    }
-  }
-});
-
-ipcMain.on('dsh:window-close', () => {
-  if (mainWindow) mainWindow.close();
-});
-
-ipcMain.on('dsh:window-toggle-pin', (event) => {
-  if (mainWindow) {
-    const nextPin = !mainWindow.isAlwaysOnTop();
-    mainWindow.setAlwaysOnTop(nextPin);
-    event.reply('dsh:window-pinned', nextPin);
-  }
-});
-
-ipcMain.on('dsh:window-reload', () => {
-  if (mainWindow) mainWindow.reload();
-});
-
-ipcMain.handle('dsh:get-window-state', () => {
-  return {
-    isMaximized: mainWindow ? mainWindow.isMaximized() : false,
-    isPinned: mainWindow ? mainWindow.isAlwaysOnTop() : false
-  };
-});
-
-ipcMain.on('dsh:retry-connect', () => attemptConnect());
+// IPC Handlers
+ipcMain.on('dsh:retry-connect', () => restartDshEntirely());
 ipcMain.on('dsh:open-devtools', () => {
   if (mainWindow) mainWindow.webContents.openDevTools({ mode: 'detach' });
 });
@@ -358,7 +401,6 @@ app.whenReady().then(() => {
   createMainWindow();
   setupTray();
 
-  // Register Global Hotkey (Ctrl+Shift+D) to toggle DSH
   try {
     globalShortcut.register('CommandOrControl+Shift+D', () => {
       if (!mainWindow) return;
@@ -382,10 +424,12 @@ app.on('before-quit', () => {
   isQuitting = true;
   if (checkInterval) clearInterval(checkInterval);
   globalShortcut.unregisterAll();
+  stopDshBackend();
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
+    stopDshBackend();
     app.quit();
   }
 });

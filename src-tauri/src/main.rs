@@ -87,9 +87,9 @@ fn start_embedded_dsh_backend(app_handle: &tauri::AppHandle) {
 /// 强力预加载初始化脚本
 const DSH_PRELOAD_INIT_SCRIPT: &str = r#"
 (function() {
-  console.log('[DSH Native Unblocker & DragDrop Fix] Active on:', window.location.href);
+  console.log('[DSH Native Client] Active on:', window.location.href);
 
-  // 1. 彻底解决侧边栏探测防御：劫持 /sidebar/api/browser.probe
+  // 劫持 /sidebar/api/browser.probe，保证侧边栏检测永远畅通
   const originalFetch = window.fetch;
   window.fetch = async function(...args) {
     const url = args[0] ? args[0].toString() : '';
@@ -109,52 +109,6 @@ const DSH_PRELOAD_INIT_SCRIPT: &str = r#"
     }
     return originalFetch.apply(this, args);
   };
-
-  // 2. 自动穿透侧边栏拦截提示（双重保险）
-  function handleDOMBypass() {
-    const buttons = document.querySelectorAll('button');
-    for (let i = 0; i < buttons.length; i++) {
-      const btn = buttons[i];
-      const text = (btn.textContent || '').trim();
-      if (text === '仍然加载' || text === 'Load anyway' || text === '继续加载') {
-        btn.click();
-      }
-    }
-
-    const iframes = document.querySelectorAll('iframe');
-    for (let i = 0; i < iframes.length; i++) {
-      const iframe = iframes[i];
-      if (!iframe.getAttribute('data-unblocked')) {
-        iframe.setAttribute('data-unblocked', 'true');
-        iframe.removeAttribute('sandbox');
-        iframe.setAttribute('referrerpolicy', 'no-referrer');
-      }
-    }
-  }
-
-  // 3. 修复 Windows WebView2 下的拖拽图片/文件到输入框
-  window.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    if (e.dataTransfer) {
-      e.dataTransfer.dropEffect = 'copy';
-    }
-  }, true);
-
-  window.addEventListener('drop', (e) => {
-    // 确保拖拽事件能够顺利冒泡到 React/Vue 的 drop target 区域
-  }, true);
-
-  // 4. 持续监听 DOM
-  const observer = new MutationObserver(handleDOMBypass);
-  if (document.documentElement) {
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-  } else {
-    document.addEventListener('DOMContentLoaded', () => {
-      observer.observe(document.documentElement, { childList: true, subtree: true });
-    });
-  }
-
-  setInterval(handleDOMBypass, 200);
 })();
 "#;
 

@@ -1,4 +1,4 @@
-name: Build Tauri v2 Windows EXE
+name: Build Tauri v2 Windows All-In-One
 
 on:
   push:
@@ -15,47 +15,53 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js in Runner
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install DSH in CI Runner
+        run: |
+          npm install -g @deepseek-ai/dsh@0.1.0-rc.6
+          mkdir -p src-tauri/resources/runtime/bin
+          mkdir -p src-tauri/resources/runtime/node_modules/@deepseek-ai/dsh
+          cp $(which node) src-tauri/resources/runtime/bin/node.exe
+          cp -r $(npm root -g)/@deepseek-ai/dsh/* src-tauri/resources/runtime/node_modules/@deepseek-ai/dsh/
+
       - name: Rust setup
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
 
       - name: Build Tauri Binary
         working-directory: ./src-tauri
         run: |
           cargo build --release
 
-      - name: Prepare Artifacts
+      - name: Package Standalone Archive
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "release-artifacts"
-          Copy-Item "src-tauri\target\release\dsh-desktop-tauri.exe" "release-artifacts\DeepSeek-Harness-Tauri-v2-AllInOne-v1.2.0.exe"
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: DeepSeek-Harness-Tauri-v2-AllInOne-v1.2.0
-          path: release-artifacts/DeepSeek-Harness-Tauri-v2-AllInOne-v1.2.0.exe
+          New-Item -ItemType Directory -Force -Path "release-dist\DeepSeek-Harness-v1.4.0"
+          Copy-Item "src-tauri\target\release\dsh-desktop-tauri.exe" "release-dist\DeepSeek-Harness-v1.4.0\DeepSeek-Harness.exe"
+          Copy-Item -Recurse "src-tauri\resources" "release-dist\DeepSeek-Harness-v1.4.0\resources"
+          Compress-Archive -Path "release-dist\DeepSeek-Harness-v1.4.0\*" -DestinationPath "release-dist\DeepSeek-Harness-Tauri-v2-AllInOne-v1.4.0.zip" -Force
+          Copy-Item "src-tauri\target\release\dsh-desktop-tauri.exe" "release-dist\DeepSeek-Harness-Tauri-v2-Launcher-v1.4.0.exe"
 
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.2.0
-          name: "DeepSeek Harness Desktop (Tauri v2 All-in-One) v1.2.0"
+          tag_name: v1.4.0
+          name: "DeepSeek Harness Desktop (Tauri v2 Truly All-in-One) v1.4.0"
           body: |
-            ## DeepSeek Harness (DSH) 原生桌面客户端 (Tauri v2 All-in-One) v1.2.0
+            ## DeepSeek Harness (DSH) 真正全内置独立版 (Tauri v2) v1.4.0
 
-            - 🚀 **内置 Node.js & DSH Daemon 守护**：无需预装 Node/npm，自动拉起服务。
-            - 🔄 **托盘一键重启**：系统托盘右键增加「🔄 重启 DSH 后台服务」功能。
-            - 🛡️ **侧边栏拦截源头穿透**：底层拦截探测接口，抹平 blocked 拦截卡片。
-            - 🖱️ **拖拽图片/文件支持**：打通 WebView2 拖放事件。
+            - 🌟 **真正开箱即用（Zero-Dependency）**：内置完整 Node.js 24 + 全量 DSH 核心依赖。
+            - 🚀 **双击即开**：解压后直接双击 `DeepSeek-Harness.exe` 即可全自动拉起后台服务并进入界面。
+            - 🔄 **系统托盘集成**：支持右键「🔄 重启 DSH 后台服务」与窗口显示/隐藏。
+            - 🌐 **侧边栏无缝嵌入任意网页**：内置实时代理剥离 `X-Frame-Options` 与 `frame-ancestors`，支持 GitHub、各类文档站流畅加载。
+            - 🖱️ **网页可点击与交互全修复**：解锁 LocalStorage/Cookie/Top-Nav 限制，彻底解决按钮点不动与事件失灵。
           files: |
-            release-artifacts/DeepSeek-Harness-Tauri-v2-AllInOne-v1.2.0.exe
+            release-dist/DeepSeek-Harness-Tauri-v2-AllInOne-v1.4.0.zip
+            release-dist/DeepSeek-Harness-Tauri-v2-Launcher-v1.4.0.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
