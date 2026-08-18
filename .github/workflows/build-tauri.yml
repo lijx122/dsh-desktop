@@ -34,28 +34,28 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "release-artifacts"
-          Copy-Item "src-tauri\target\release\dsh-desktop-tauri.exe" "release-artifacts\DeepSeek-Harness-Tauri-v2-v1.1.1.exe"
+          Copy-Item "src-tauri\target\release\dsh-desktop-tauri.exe" "release-artifacts\DeepSeek-Harness-Tauri-v2-AllInOne-v1.2.0.exe"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DeepSeek-Harness-Tauri-v2-v1.1.1
-          path: release-artifacts/DeepSeek-Harness-Tauri-v2-v1.1.1.exe
+          name: DeepSeek-Harness-Tauri-v2-AllInOne-v1.2.0
+          path: release-artifacts/DeepSeek-Harness-Tauri-v2-AllInOne-v1.2.0.exe
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.1.1
-          name: "DeepSeek Harness Desktop (Tauri v2) v1.1.1"
+          tag_name: v1.2.0
+          name: "DeepSeek Harness Desktop (Tauri v2 All-in-One) v1.2.0"
           body: |
-            ## DeepSeek Harness (DSH) 原生桌面客户端 (Tauri v2) v1.1.1
+            ## DeepSeek Harness (DSH) 原生桌面客户端 (Tauri v2 All-in-One) v1.2.0
 
-            - 🚀 **超轻量原生 EXE**：仅十几 MB，基于 Windows 原生 WebView2 运行时。
-            - 🛡️ **侧边栏拦截彻底穿透**：通过底层全局 fetch 劫持 `/sidebar/api/browser.probe`，从源头消灭 blocked 状态。
-            - 🖱️ **拖拽上传打通**：支持 Windows 桌面文件/图片直接拖入对话框。
-            - 🎨 **图标透明化**：去除蓝底背景。
+            - 🚀 **内置 Node.js & DSH Daemon 守护**：无需预装 Node/npm，自动拉起服务。
+            - 🔄 **托盘一键重启**：系统托盘右键增加「🔄 重启 DSH 后台服务」功能。
+            - 🛡️ **侧边栏拦截源头穿透**：底层拦截探测接口，抹平 blocked 拦截卡片。
+            - 🖱️ **拖拽图片/文件支持**：打通 WebView2 拖放事件。
           files: |
-            release-artifacts/DeepSeek-Harness-Tauri-v2-v1.1.1.exe
+            release-artifacts/DeepSeek-Harness-Tauri-v2-AllInOne-v1.2.0.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
