@@ -54,15 +54,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.4.0
-          name: "DeepSeek Harness Desktop (Tauri v2 Truly All-in-One) v1.4.0"
+          name: "DeepSeek Harness Desktop (Tauri v2 Native Viewport Scheme C) v1.4.0"
           body: |
-            ## DeepSeek Harness (DSH) 真正全内置独立版 (Tauri v2) v1.4.0
+            ## DeepSeek Harness (DSH) 原生视口停靠版 (Tauri v2 方案 C) v1.4.0
 
-            - 🌟 **真正开箱即用（Zero-Dependency）**：内置完整 Node.js 24 + 全量 DSH 核心依赖。
-            - 🚀 **双击即开**：解压后直接双击 `DeepSeek-Harness.exe` 即可全自动拉起后台服务并进入界面。
-            - 🔄 **系统托盘集成**：支持右键「🔄 重启 DSH 后台服务」与窗口显示/隐藏。
-            - 🌐 **侧边栏无缝嵌入任意网页**：内置实时代理剥离 `X-Frame-Options` 与 `frame-ancestors`，支持 GitHub、各类文档站流畅加载。
-            - 🖱️ **网页可点击与交互全修复**：解锁 LocalStorage/Cookie/Top-Nav 限制，彻底解决按钮点不动与事件失灵。
+            - 🌟 **方案 C 原生视口停靠（Native Docked Viewport）**：采用 Tauri v2 Child Webview 原生技术，右侧侧边栏内嵌渲染，彻底消除 X-Frame / frame-ancestors 限制。
+            - 🚀 **双击即开（Zero-Dependency）**：内置完整 Node.js 24 + 全量 DSH 核心依赖与守护进程。
+            - 🔄 **系统托盘与生命周期管理**：支持后台服务重启、界面重载、窗口托盘最小化。
+            - 🖥️ **无缝 DOM 坐标同步**：侧边栏与原生视口实时自动锚定。
           files: |
             release-dist/DeepSeek-Harness-Tauri-v2-AllInOne-v1.4.0.zip
             release-dist/DeepSeek-Harness-Tauri-v2-Launcher-v1.4.0.exe

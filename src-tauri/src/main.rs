@@ -6,7 +6,8 @@ use std::sync::Mutex;
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    webview::WebviewBuilder,
+    LogicalPosition, LogicalSize, Manager, WebviewUrl,
 };
 
 static DSH_DAEMON: Mutex<Option<Child>> = Mutex::new(None);
@@ -97,7 +98,7 @@ fn open_browser_window(app_handle: tauri::AppHandle, url: String, title: Option<
     if let Some(existing_window) = app_handle.get_webview_window("browser-preview") {
         let _ = existing_window.show();
         let _ = existing_window.set_focus();
-        let eval_code = format!("window.location.href = '{}';", target_url.replace('\\', "\\\\").replace('\'', "\\'"));
+        let eval_code = format!("window.location.href = '{}';", target_url.replace('\', "\\").replace('\'', "\\'"));
         let _ = existing_window.eval(&eval_code);
         let _ = existing_window.set_title(&window_title);
     } else {
@@ -121,9 +122,119 @@ fn open_browser_window(app_handle: tauri::AppHandle, url: String, title: Option<
     Ok(())
 }
 
+/// 方案 C：在主窗口内部挂载/停靠原生浏览器视口 (Native Docked Viewport)
+#[tauri::command]
+async fn dock_browser_attach(
+    app_handle: tauri::AppHandle,
+    url: String,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    let target_url = if url.trim().is_empty() {
+        "about:blank".to_string()
+    } else {
+        url.trim().to_string()
+    };
+    let parsed_url = url::Url::parse(&target_url)
+        .unwrap_or_else(|_| url::Url::parse("https://github.com").unwrap());
+
+    if let Some(webview) = app_handle.get_webview("sidebar-browser") {
+        let _ = webview.set_position(LogicalPosition::new(x, y));
+        let _ = webview.set_size(LogicalSize::new(width, height));
+        let _ = webview.show();
+        let _ = webview.navigate(parsed_url);
+    } else {
+        let window = app_handle
+            .get_window("main")
+            .ok_or_else(|| "Main window 'main' not found".to_string())?;
+
+        let builder = WebviewBuilder::new("sidebar-browser", WebviewUrl::External(parsed_url))
+            .enable_clipboard_access()
+            .accept_first_mouse(true);
+
+        let _ = window
+            .add_child(
+                builder,
+                LogicalPosition::new(x, y),
+                LogicalSize::new(width, height),
+            )
+            .map_err(|e| format!("Failed to dock native webview: {}", e))?;
+    }
+    Ok(())
+}
+
+/// 方案 C：更新原生侧边栏视口尺寸与位置
+#[tauri::command]
+async fn dock_browser_update_bounds(
+    app_handle: tauri::AppHandle,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    if let Some(webview) = app_handle.get_webview("sidebar-browser") {
+        let _ = webview.set_position(LogicalPosition::new(x, y));
+        let _ = webview.set_size(LogicalSize::new(width, height));
+    }
+    Ok(())
+}
+
+/// 方案 C：隐藏原生侧边栏视口（切换 Tab 时）
+#[tauri::command]
+async fn dock_browser_hide(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(webview) = app_handle.get_webview("sidebar-browser") {
+        let _ = webview.hide();
+    }
+    Ok(())
+}
+
+/// 方案 C：重新显示原生侧边栏视口
+#[tauri::command]
+async fn dock_browser_show(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(webview) = app_handle.get_webview("sidebar-browser") {
+        let _ = webview.show();
+    }
+    Ok(())
+}
+
+/// 方案 C：原生视口导航
+#[tauri::command]
+async fn dock_browser_navigate(app_handle: tauri::AppHandle, url: String) -> Result<(), String> {
+    let target_url = if url.trim().is_empty() {
+        "about:blank".to_string()
+    } else {
+        url.trim().to_string()
+    };
+    if let Some(webview) = app_handle.get_webview("sidebar-browser") {
+        if let Ok(parsed_url) = url::Url::parse(&target_url) {
+            let _ = webview.navigate(parsed_url);
+        }
+    }
+    Ok(())
+}
+
+/// 方案 C：销毁原生视口
+#[tauri::command]
+async fn dock_browser_close(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(webview) = app_handle.get_webview("sidebar-browser") {
+        let _ = webview.close();
+    }
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![open_browser_window])
+        .invoke_handler(tauri::generate_handler![
+            open_browser_window,
+            dock_browser_attach,
+            dock_browser_update_bounds,
+            dock_browser_hide,
+            dock_browser_show,
+            dock_browser_navigate,
+            dock_browser_close,
+        ])
         .setup(|app| {
             let handle = app.handle().clone();
 
