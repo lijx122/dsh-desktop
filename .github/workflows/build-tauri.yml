@@ -21,12 +21,15 @@ jobs:
           node-version: 24
 
       - name: Install DSH in CI Runner
+        shell: pwsh
         run: |
           npm install -g @deepseek-ai/dsh@0.1.0-rc.6
-          mkdir -p src-tauri/resources/runtime/bin
-          mkdir -p src-tauri/resources/runtime/node_modules/@deepseek-ai/dsh
-          cp $(which node) src-tauri/resources/runtime/bin/node.exe
-          cp -r $(npm root -g)/@deepseek-ai/dsh/* src-tauri/resources/runtime/node_modules/@deepseek-ai/dsh/
+          New-Item -ItemType Directory -Force -Path "src-tauri\resources\runtime\bin"
+          New-Item -ItemType Directory -Force -Path "src-tauri\resources\runtime\node_modules\@deepseek-ai\dsh"
+          $nodePath = (Get-Command node).Source
+          Copy-Item $nodePath "src-tauri\resources\runtime\bin\node.exe" -Force
+          $globalRoot = npm root -g
+          Copy-Item -Recurse -Force "$globalRoot\@deepseek-ai\dsh\*" "src-tauri\resources\runtime\node_modules\@deepseek-ai\dsh\"
 
       - name: Rust setup
         uses: dtolnay/rust-toolchain@stable
