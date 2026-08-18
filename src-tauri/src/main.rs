@@ -3,13 +3,15 @@
 
 use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WebviewUrl, WebviewWindowBuilder,
+    Manager,
 };
 
 /// 强力预加载初始化脚本（在任何页面 DOM 解析之前执行）：
+/// 1. 自动穿透侧边栏拦截提示
+/// 2. 原生支持拖拽文件/图片到聊天输入框
 const DSH_PRELOAD_INIT_SCRIPT: &str = r#"
 (function() {
-  console.log('[DSH Native Unblocker] Active on:', window.location.href);
+  console.log('[DSH Native Unblocker & DragDrop Fix] Active on:', window.location.href);
 
   // 1. 自动穿透侧边栏拦截提示
   function handleDOMBypass() {
@@ -37,7 +39,16 @@ const DSH_PRELOAD_INIT_SCRIPT: &str = r#"
     }
   }
 
-  // 2. 持续高频监听
+  // 2. 修复 Windows WebView2 下的 HTML5 拖拽事件冒泡
+  window.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  }, false);
+
+  window.addEventListener('drop', (e) => {
+    // 允许网页本身的 drop handler 处理
+  }, false);
+
+  // 3. 持续高频监听 DOM
   const observer = new MutationObserver(handleDOMBypass);
   if (document.documentElement) {
     observer.observe(document.documentElement, { childList: true, subtree: true });
@@ -79,7 +90,6 @@ fn main() {
                 })
                 .build(app)?;
 
-            // 使用 WebviewWindowBuilder 动态配置带有 initialization_script 的主窗口
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.eval(DSH_PRELOAD_INIT_SCRIPT);
             }

@@ -21,6 +21,7 @@
         "transparent": false,
         "shadow": true,
         "center": true,
+        "dragDropEnabled": true,
         "additionalBrowserArgs": "--disable-features=IsolateOrigins,site-per-process --disable-web-security --allow-running-insecure-content --disable-site-isolation-trials"
       }
     ],
