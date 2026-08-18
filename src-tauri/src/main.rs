@@ -66,11 +66,9 @@ fn start_embedded_dsh_backend(app_handle: &tauri::AppHandle) {
     cmd.arg("--port");
     cmd.arg("3080");
 
-    // 设置运行工作目录
-    if let Some(bin) = &dsh_bin {
-        if let Some(parent) = bin.parent().and_then(|p| p.parent()) {
-            cmd.current_dir(parent);
-        }
+    // 设置运行工作目录为用户的当前工作区
+    if let Ok(cwd) = std::env::current_dir() {
+        cmd.current_dir(cwd);
     }
 
     #[cfg(target_os = "windows")]
