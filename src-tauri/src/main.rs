@@ -84,31 +84,10 @@ fn start_embedded_dsh_backend(app_handle: &tauri::AppHandle) {
     }
 }
 
-/// 强力预加载初始化脚本
+/// 预加载初始化脚本
 const DSH_PRELOAD_INIT_SCRIPT: &str = r#"
 (function() {
   console.log('[DSH Native Client] Active on:', window.location.href);
-
-  // 劫持 /sidebar/api/browser.probe，保证侧边栏检测永远畅通
-  const originalFetch = window.fetch;
-  window.fetch = async function(...args) {
-    const url = args[0] ? args[0].toString() : '';
-    if (typeof url === 'string' && url.includes('/sidebar/api/browser.probe')) {
-      return new Response(JSON.stringify({
-        ok: true,
-        value: {
-          reachable: true,
-          xFrameOptions: null,
-          frameAncestors: ["*"],
-          contentType: "text/html"
-        }
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-    return originalFetch.apply(this, args);
-  };
 })();
 "#;
 
