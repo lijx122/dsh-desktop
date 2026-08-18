@@ -91,8 +91,41 @@ const DSH_PRELOAD_INIT_SCRIPT: &str = r#"
 })();
 "#;
 
+#[tauri::command]
+fn open_browser_window(app_handle: tauri::AppHandle, url: String, title: Option<String>) -> Result<(), String> {
+    let window_title = title.unwrap_or_else(|| "DSH Browser Preview".to_string());
+    let target_url = url.trim().to_string();
+
+    if let Some(existing_window) = app_handle.get_webview_window("browser-preview") {
+        let _ = existing_window.show();
+        let _ = existing_window.set_focus();
+        let eval_code = format!("window.location.href = '{}';", target_url.replace('\\', "\\\\").replace('\'', "\\'"));
+        let _ = existing_window.eval(&eval_code);
+        let _ = existing_window.set_title(&window_title);
+    } else {
+        let parsed_url = url::Url::parse(&target_url)
+            .unwrap_or_else(|_| url::Url::parse("https://github.com").unwrap());
+
+        let _ = tauri::WebviewWindowBuilder::new(
+            &app_handle,
+            "browser-preview",
+            tauri::WebviewUrl::External(parsed_url),
+        )
+        .title(&window_title)
+        .inner_size(1100.0, 800.0)
+        .min_inner_size(400.0, 300.0)
+        .resizable(true)
+        .decorations(true)
+        .center()
+        .build()
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![open_browser_window])
         .setup(|app| {
             let handle = app.handle().clone();
 
