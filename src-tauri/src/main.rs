@@ -86,6 +86,7 @@ fn start_embedded_dsh_backend(app_handle: &tauri::AppHandle) {
 /// 预加载初始化脚本
 const DSH_PRELOAD_INIT_SCRIPT: &str = r#"
 (function() {
+  window.__IS_DSH_DESKTOP__ = true;
   console.log('[DSH Native Client] Active on:', window.location.href);
 })();
 "#;
@@ -133,8 +134,12 @@ async fn dock_browser_attach(
     width: f64,
     height: f64,
 ) -> Result<(), String> {
+    if width <= 10.0 || height <= 10.0 {
+        return Ok(());
+    }
+
     let target_url = if url.trim().is_empty() {
-        "about:blank".to_string()
+        "https://github.com".to_string()
     } else {
         url.trim().to_string()
     };
@@ -145,6 +150,7 @@ async fn dock_browser_attach(
         let _ = webview.set_position(LogicalPosition::new(x, y));
         let _ = webview.set_size(LogicalSize::new(width, height));
         let _ = webview.show();
+        let _ = webview.set_focus();
         let _ = webview.navigate(parsed_url);
     } else {
         let window = app_handle
@@ -175,6 +181,9 @@ async fn dock_browser_update_bounds(
     width: f64,
     height: f64,
 ) -> Result<(), String> {
+    if width <= 10.0 || height <= 10.0 {
+        return Ok(());
+    }
     if let Some(webview) = app_handle.get_webview("sidebar-browser") {
         let _ = webview.set_position(LogicalPosition::new(x, y));
         let _ = webview.set_size(LogicalSize::new(width, height));
@@ -204,7 +213,7 @@ async fn dock_browser_show(app_handle: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 async fn dock_browser_navigate(app_handle: tauri::AppHandle, url: String) -> Result<(), String> {
     let target_url = if url.trim().is_empty() {
-        "about:blank".to_string()
+        "https://github.com".to_string()
     } else {
         url.trim().to_string()
     };
