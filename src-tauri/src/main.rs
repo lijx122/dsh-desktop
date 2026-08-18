@@ -20,14 +20,31 @@ fn start_embedded_dsh_backend(app_handle: &tauri::AppHandle) {
         let _ = child.kill();
     }
 
-    // 解析内置 runtime 路径
+    // 1. 尝试从 EXE 所在同级目录解析 resources/runtime
+    let exe_dir = std::env::current_exe()
+        .map(|p| p.parent().unwrap_or(std::path::Path::new(".")).to_path_buf())
+        .unwrap_or_else(|_| std::path::PathBuf::from("."));
+
     let resource_dir = app_handle
         .path()
         .resource_dir()
-        .unwrap_or_else(|_| std::path::PathBuf::from("."));
+        .unwrap_or_else(|_| exe_dir.clone());
 
-    let node_exe = resource_dir.join("resources/runtime/bin/node.exe");
-    let dsh_bin = resource_dir.join("resources/runtime/dsh/lib/bin.js");
+    // 查找内置 node.exe
+    let mut node_exe = exe_dir.join("resources/runtime/bin/node.exe");
+    if !node_exe.exists() {
+        node_exe = resource_dir.join("resources/runtime/bin/node.exe");
+    }
+
+    // 支持两种目录结构 (node_modules/@deepseek-ai/dsh 或 dsh)
+    let candidates = [
+        exe_dir.join("resources/runtime/node_modules/@deepseek-ai/dsh/lib/bin.js"),
+        exe_dir.join("resources/runtime/dsh/lib/bin.js"),
+        resource_dir.join("resources/runtime/node_modules/@deepseek-ai/dsh/lib/bin.js"),
+        resource_dir.join("resources/runtime/dsh/lib/bin.js"),
+    ];
+
+    let dsh_bin = candidates.into_iter().find(|p| p.exists());
 
     let cmd_str = if node_exe.exists() {
         node_exe.to_string_lossy().to_string()
@@ -35,19 +52,26 @@ fn start_embedded_dsh_backend(app_handle: &tauri::AppHandle) {
         "node".to_string()
     };
 
-    println!("[Tauri DSH Daemon] Launching {:?} with {:?}", cmd_str, dsh_bin);
+    println!("[Tauri DSH Daemon] Resolved paths: node={:?}, dsh={:?}", cmd_str, dsh_bin);
 
     #[cfg(target_os = "windows")]
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x08000000;
 
     let mut cmd = Command::new(cmd_str);
-    if dsh_bin.exists() {
-        cmd.arg(dsh_bin);
+    if let Some(bin) = &dsh_bin {
+        cmd.arg(bin);
     }
     cmd.arg("web");
     cmd.arg("--port");
     cmd.arg("3080");
+
+    // 设置运行工作目录
+    if let Some(bin) = &dsh_bin {
+        if let Some(parent) = bin.parent().and_then(|p| p.parent()) {
+            cmd.current_dir(parent);
+        }
+    }
 
     #[cfg(target_os = "windows")]
     cmd.creation_flags(CREATE_NO_WINDOW);
@@ -154,7 +178,7 @@ fn main() {
 
             let _tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
-                .tooltip("DeepSeek Harness (Tauri v2 All-in-One)")
+                .tooltip("DeepSeek Harness (Tauri v2 Truly All-in-One)")
                 .menu(&menu)
                 .on_menu_event(move |app, event| match event.id.as_ref() {
                     "show" => {
