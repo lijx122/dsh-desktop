@@ -7,13 +7,34 @@ use tauri::{
 };
 
 /// 强力预加载初始化脚本（在任何页面 DOM 解析之前执行）：
-/// 1. 自动穿透侧边栏拦截提示
-/// 2. 原生支持拖拽文件/图片到聊天输入框
+/// 1. 彻底解决侧边栏拦截：直接在 fetch 层劫持 /sidebar/api/browser.probe，返回可嵌入
+/// 2. 彻底解决拖拽上传：修复 Windows WebView2 下的 HTML5 拖拽事件
 const DSH_PRELOAD_INIT_SCRIPT: &str = r#"
 (function() {
   console.log('[DSH Native Unblocker & DragDrop Fix] Active on:', window.location.href);
 
-  // 1. 自动穿透侧边栏拦截提示
+  // 1. 彻底解决侧边栏探测防御：劫持 /sidebar/api/browser.probe
+  const originalFetch = window.fetch;
+  window.fetch = async function(...args) {
+    const url = args[0] ? args[0].toString() : '';
+    if (typeof url === 'string' && url.includes('/sidebar/api/browser.probe')) {
+      return new Response(JSON.stringify({
+        ok: true,
+        value: {
+          reachable: true,
+          xFrameOptions: null,
+          frameAncestors: ["*"],
+          contentType: "text/html"
+        }
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    return originalFetch.apply(this, args);
+  };
+
+  // 2. 自动穿透侧边栏拦截提示（双重保险）
   function handleDOMBypass() {
     const buttons = document.querySelectorAll('button');
     for (let i = 0; i < buttons.length; i++) {
@@ -29,26 +50,25 @@ const DSH_PRELOAD_INIT_SCRIPT: &str = r#"
       const iframe = iframes[i];
       if (!iframe.getAttribute('data-unblocked')) {
         iframe.setAttribute('data-unblocked', 'true');
-        if (iframe.hasAttribute('sandbox')) {
-          iframe.setAttribute(
-            'sandbox',
-            'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads'
-          );
-        }
+        iframe.removeAttribute('sandbox');
+        iframe.setAttribute('referrerpolicy', 'no-referrer');
       }
     }
   }
 
-  // 2. 修复 Windows WebView2 下的 HTML5 拖拽事件冒泡
+  // 3. 修复 Windows WebView2 下的拖拽图片/文件到输入框
   window.addEventListener('dragover', (e) => {
     e.preventDefault();
-  }, false);
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }, true);
 
   window.addEventListener('drop', (e) => {
-    // 允许网页本身的 drop handler 处理
-  }, false);
+    // 确保拖拽事件能够顺利冒泡到 React/Vue 的 drop target 区域
+  }, true);
 
-  // 3. 持续高频监听 DOM
+  // 4. 持续监听 DOM
   const observer = new MutationObserver(handleDOMBypass);
   if (document.documentElement) {
     observer.observe(document.documentElement, { childList: true, subtree: true });
@@ -97,7 +117,6 @@ fn main() {
             Ok(())
         })
         .on_page_load(|window, _payload| {
-            // 每次页面加载（包括跳到 127.0.0.1:3080 时）强制运行初始化脚本
             let _ = window.eval(DSH_PRELOAD_INIT_SCRIPT);
         })
         .run(tauri::generate_context!())
