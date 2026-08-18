@@ -1,0 +1,8 @@
+node_modules
+dist
+target
+.icon-ico
+.npmrc
+dsh-embed-unblocker.zip
+dsh-embed-unblocker.xpi
+test-headers.cjs

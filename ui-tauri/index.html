@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeepSeek Harness (Tauri v2)</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #131b2e;
+      --border: #1e293b;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      user-select: none;
+      overflow: hidden;
+    }
+    .container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      width: 440px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .badge-tauri {
+      font-size: 11px;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #60a5fa;
+      padding: 3px 10px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+    .logo {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      animation: pulse 2.5s infinite ease-in-out;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      color: var(--primary);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      margin-bottom: 24px;
+    }
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(59, 130, 246, 0.2);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+      width: 100%;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .footer-hint {
+      margin-top: 20px;
+      font-size: 11px;
+      color: #64748b;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.85; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="badge-tauri">TAURI v2 NATIVE</div>
+    <h1>DeepSeek Harness</h1>
+    <p>正在连接 DSH 本地服务后台...</p>
+
+    <div class="status-badge">
+      <div class="spinner" id="spinner"></div>
+      <span id="statusText">正在探测 http://127.0.0.1:3080</span>
+    </div>
+
+    <button class="btn" onclick="checkAndRedirect()">立即重试</button>
+
+    <div class="footer-hint">
+      若未启动后台，请在终端执行 <code>dsh web</code>
+    </div>
+  </div>
+
+  <script>
+    const DSH_URL = "http://127.0.0.1:3080";
+
+    async function checkAndRedirect() {
+      const statusText = document.getElementById("statusText");
+      try {
+        statusText.textContent = "连接中...";
+        const res = await fetch(DSH_URL, { mode: 'no-cors' });
+        statusText.textContent = "已就绪，正在进入...";
+        setTimeout(() => {
+          window.location.replace(DSH_URL);
+        }, 300);
+      } catch (err) {
+        statusText.textContent = "等待后台启动 (" + new Date().toLocaleTimeString() + ")...";
+      }
+    }
+
+    // Auto poll on startup
+    checkAndRedirect();
+    setInterval(checkAndRedirect, 1500);
+  </script>
+</body>
+</html>

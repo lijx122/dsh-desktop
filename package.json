@@ -1,0 +1,47 @@
+{
+  "name": "dsh-desktop",
+  "version": "1.0.0",
+  "description": "DeepSeek Harness (DSH) Native Desktop Client",
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable --dir",
+    "dist:exe": "electron-builder --win portable",
+    "dist:installer": "electron-builder --win nsis"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "electron",
+    "ai-agent"
+  ],
+  "author": "DSH Community",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.deepseek.dsh.desktop",
+    "productName": "DeepSeek Harness",
+    "win": {
+      "target": [
+        "portable",
+        "dir"
+      ],
+      "icon": "assets/icon.png",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
+    },
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ]
+  }
+}

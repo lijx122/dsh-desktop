@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeepSeek Harness</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #131b2e;
+      --border: #1e293b;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      user-select: none;
+      overflow: hidden;
+    }
+    .container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      width: 420px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .logo {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 20px;
+      animation: pulse 2.5s infinite ease-in-out;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      color: var(--primary);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      margin-bottom: 24px;
+    }
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(59, 130, 246, 0.2);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+    }
+    .btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      width: 100%;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn:active { transform: scale(0.98); }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
+    .footer-hint {
+      margin-top: 20px;
+      font-size: 11px;
+      color: #64748b;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.85; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="../assets/icon.png" class="logo" alt="DSH Logo" />
+    <h1>DeepSeek Harness</h1>
+    <p>正在连接 DSH 本地服务后台...</p>
+
+    <div class="status-badge" id="statusBadge">
+      <div class="spinner" id="spinner"></div>
+      <span id="statusText">正在探测 http://127.0.0.1:3080</span>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="retryBtn" onclick="window.dshDesktop.retryConnection()">立即重试</button>
+      <button class="btn btn-secondary" onclick="window.dshDesktop.openDevTools()">开发者工具</button>
+    </div>
+
+    <div class="footer-hint">
+      提示：若未启动 DSH，请在终端执行 <code>dsh web</code>
+    </div>
+  </div>
+
+  <script>
+    if (window.dshDesktop) {
+      window.dshDesktop.onStatusChange((status) => {
+        const textElem = document.getElementById('statusText');
+        const spinner = document.getElementById('spinner');
+        if (textElem) textElem.textContent = status.message || status;
+        if (spinner) {
+          spinner.style.display = status.connected ? 'none' : 'inline-block';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

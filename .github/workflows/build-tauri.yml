@@ -1,0 +1,60 @@
+name: Build Tauri v2 Windows EXE
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-tauri:
+    permissions:
+      contents: write
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Build Tauri Binary
+        working-directory: ./src-tauri
+        run: |
+          cargo build --release
+
+      - name: Prepare Artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "release-artifacts"
+          Copy-Item "src-tauri\target\release\dsh-desktop-tauri.exe" "release-artifacts\DeepSeek-Harness-Tauri-v2.exe"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeepSeek-Harness-Tauri-v2
+          path: release-artifacts/DeepSeek-Harness-Tauri-v2.exe
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: "DeepSeek Harness Desktop (Tauri v2) v1.0.0"
+          body: |
+            ## DeepSeek Harness (DSH) 原生桌面客户端 (Tauri v2)
+
+            - 🚀 **超轻量原生 EXE**：仅十几 MB，基于 Windows 原生 WebView2 运行时。
+            - 🛡️ **内嵌网页限制全放行**：解除 X-Frame-Options、CSP、跨站隔离限制。
+            - 🖥️ **系统级原生集成**：托盘常驻、平滑重连、窗口状态记忆。
+          files: |
+            release-artifacts/DeepSeek-Harness-Tauri-v2.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
