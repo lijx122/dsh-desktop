@@ -98,7 +98,8 @@ fn open_browser_window(app_handle: tauri::AppHandle, url: String, title: Option<
     if let Some(existing_window) = app_handle.get_webview_window("browser-preview") {
         let _ = existing_window.show();
         let _ = existing_window.set_focus();
-        let eval_code = format!("window.location.href = '{}';", target_url.replace('\', "\\").replace('\'', "\\'"));
+        let sanitized = target_url.replace('\\', "\\\\").replace('\'', "\\'");
+        let eval_code = format!("window.location.href = '{}';", sanitized);
         let _ = existing_window.eval(&eval_code);
         let _ = existing_window.set_title(&window_title);
     } else {
